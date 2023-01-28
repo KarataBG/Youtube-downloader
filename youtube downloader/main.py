@@ -1,12 +1,26 @@
 import os
 import sys
-import threading
-from tkinter import *
+import time
+from threading import Thread as threading
+from tkinter import OptionMenu
+from tkinter import Button
+from tkinter import Label
+from tkinter import Message
+from tkinter import Tk
+from tkinter import StringVar
+from tkinter import NONE
+from tkinter import Entry
 from tkinter import filedialog
+from tkinter import ttk
+# from queue import Queue
+from time import sleep, perf_counter
 
 from pytube import YouTube
 from pytube import Playlist
-from pytube.cli import on_progress
+
+from textwrap import wrap
+
+# from pytube.cli import on_progress
 
 sys.path.append(r'C:\ffmpeg\bin')
 
@@ -14,178 +28,440 @@ sys.path.append(r'C:\ffmpeg\bin')
 # направи проверка дали файла го има да не тегли всеки път
 # довърши подметодите и направи накрая да показва какво и къде е свалено може и прогрес линия
 # ако има начин без бутон а директно от менюто да има онклик
-# да проверявам дали вече има песента изтеглена защото аз свалям името + видео/аудио така че да провери дали го има youtube.title
+# да проверявам дали вече има песента изтеглена защото аз свалям името + видео/аудио така че да провери дали го има youtube.title; има но не проверява дали е правилно изтеглена
 
-# цялото чакане е в рекодирането на webm в mp3 намери начин да е по бързо
-# направи нишки
+# цялото чакане е в рекодирането на webm в mp3 намери начин да е по бързо; оправено от нишки
+# направи нишки; тикче
+
+# при грешка остават временните файлове
+# ако е под 720п да не тегли аудио
+# нишковаото да бъде опашка от 15 при аудио 3 при малки и средни видеа 1 при дълги видеа
+# да се оправи зацепването на главната нишка при теглене
+# ако в името на автора има забранени символи
+# при ниска резолюция на видеото тегли грешен вид и няма правилен кодек
+# [webm @ 00000259c6d3ddc0] Only VP8 or VP9 or AV1 video and Vorbis or Opus audio and WebVTT subtitles are supported for WebM.
+# Could not write header for output file #0 (incorrect codec parameters ?): Invalid argument
+# Error initializing output stream 0:1 --
+# динамично да проверява дали сваля твърде много или обработва твърде много и да увеличава или намалява броя позволени нишки
+# да изкарва повече информация преди повреме и след тегленето
+# при избирането на качество при преминаване от подробно към друго или да изтрие дошлите менюта или го направи да ги показва всичките опции да може да се изберат на куп
+# Направи менюто по-хубаво
+# Като цяло трябва да има много повече проверки
+#
+#
+# При динамичното създаване като променлива остава само последното задаване на променливи vid и audio качество
+# Или масив от качествата или масив с класове видеото със своите променливи като качество линк стрийм и тн
+#
+# Threadnumber е тежко зле не че е твърде зле ама е зле че само намалява
+# Направи код за когато няма качество
+#
+# Докато тегли видео/а да блокира бутоните (работи за индив видео) но да има бутон който да спре тегленето веднага и след текущото видео
+# Ако няма избраното аудио от плейлист да изтегли една категория надолу
+# Не тегли възрастово ограничени видеа сигурно трябва ютуб акаунт бисквити или нещо
 
 class Panel:
     startingOptionCheck = True
     choiceOneCheck = True
     workingWithPlaylist = False
+    threadNumber = 0
+    urlVault = ""
+    changedUrl = True
+    playlistLength = 0
+    currentPlaylistLength = 0
+    isDownloading = False
 
     def startingOption(self):
-        self.URL = self.entryURL.get()
         # print(self.URL)
-        if self.URL.__contains__("playlist?list") or self.URL.__contains__("&list"):
-            self.workingWithPlaylist = True
-
         self.directory = filedialog.askdirectory()
         self.directoryLabel.config(text=self.directory)
-        if self.startingOptionCheck:
-            options = [
-                "max quality video",
-                "max quality audio",
-                "all options",
-                "1080p"
-            ]
 
-            # self.clicked.set("избирай и цъквай бутона")
-            self.clicked.set("1080p")
+        if self.entryURL.get() == "":
+            self.reportLabel.config(text="Въведи youtube линк")
+            return
 
-            OptionMenu(self.root, self.clicked, *options).pack()
+        if self.urlVault != self.entryURL.get():
+            xx = threading(target=self.define(), daemon=True)
+            xx.start()
 
-            Button(self.root, text="Продължи", command=self.choiceOne).pack()
+    def define(self):
+        if self.entryURL.get().__contains__("playlist?list"):
+                # or self.entryURL.get().__contains__("&list")\
 
-            self.label = Label(self.root, text=" ")
-            self.label.pack()
-            self.startingOptionCheck = False
+            self.workingWithPlaylist = True
+        else:
+            self.workingWithPlaylist = False
+
+        if self.workingWithPlaylist:
+            # xx = threading(target=self.definePlaylist, daemon=True)
+            # xx.start()
+            self.definePlaylist()
+        if not self.workingWithPlaylist:
+            # xx = threading(target=self.defineStreams, daemon=True)
+            # xx.start()
+            self.defineStreams()
+
+    def defineYoutube(self):
+        self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function)
+        # self.url.bypass_age_gate()
+
+    def defineStreams(self):
+        self.continueButton.config(text="Връзката не е осъществена")
+        print("Starting streams")
+        self.defineYoutube()
+        print(self.url)
+        self.streams = self.url.streams
+        self.continueButton.config(text="Избери")
+        self.changedUrl = True
+        self.urlVault = self.entryURL.get()
+        self.sizeLabel.config(text=self.url.title)
+        print("Got streams")
+
+    def definePlaylist(self):
+        self.continueButton.config(text="Връзката не е осъществена")
+        print("Starting streams")
+
+        print("playlist")
+        self.playlist = Playlist(self.entryURL.get())
+        print("Got playlist")
+        # self.playlistStreams = [a.streams for a in self.playlist.videos]
+        self.streams = self.playlist.videos[0].streams
+        print("Stream 1")
+
+        self.continueButton.config(text="Избери")
+        self.changedUrl = True
+        self.urlVault = self.entryURL.get()
+        self.sizeLabel.config(text=self.playlist.title)
+        self.currentPlaylistLength = 0
+        self.playlistLength = self.playlist.length
+        self.reportLabel.config(text=self.playlistLength)
+        print("Got streams")
+
+        # print(self.playlistStreams)
+
+    labels = []
+    buttons = []
 
     def choiceOne(self):
-        if self.choiceOneCheck:
-            self.label.config(text=self.clicked.get())
-            if self.clicked.get() == "max quality video":
-                self.downloadQuickVideo(False, True, "", "")
-            if self.clicked.get() == "max quality audio":
-                self.downloadQuickVideo(True, True, "", "")
-            elif self.clicked.get() == "all options":
-                optionsPalno = [
-                    "2160p",
-                    "1440p",
-                    "1080p",
-                    "720p",
-                    "480p",
-                    "360p",
-                    "160kbps",
-                    "128kbps",
-                    "70kbps"
+        if not self.entryURL.get().strip():
+            self.reportLabel.config(text="Ne e waweden URL")
+            return
+        if not self.directory:
+            self.reportLabel.config(text="Nqma izbrana direktoriq")
+            return
+
+        if self.changedUrl:
+            print("==")
+            for obj in self.labels:
+                obj.destroy()
+
+            for obj in self.buttons:
+                obj.destroy()
+
+            self.labels = []
+            self.buttons = []
+
+            print(5)
+
+            if not self.workingWithPlaylist:
+                if self.streams is None:
+                    x = threading(target=self.define(), daemon=True)
+                    x.start()
+                    x.join()
+                for string in self.streams.filter(type="audio").order_by("abr").desc():
+                    but = Button(self.root, text="Избери",
+                                 command=lambda mime=string.mime_type, abr=string.abr:
+                                 self.downloadQuickVideo(True, False, "", mime, abr))
+                    but.grid(row=self.index, column=1)
+                    lab = Label(self.root,
+                                text=f"{string.abr} {string.mime_type.split('/')[1]} {string.filesize / 1024 / 1024 :.2f} MB")
+                    lab.grid(row=self.index, column=0)
+
+                    self.index += 1
+
+                    self.labels.append(lab)
+                    self.buttons.append(but)
+                print("BREAK0")
+                resolutions = [
+                    '4320p',
+                    '2160p',
+                    '1440p',
+                    '1080p',
+                    '720p',
+                    '480p',
+                    '360p',
+                    '240p',
+                    '144p'
                 ]
-                drop = OptionMenu(self.root, self.clickedPalno, *optionsPalno)
-                drop.pack()
-                Button(self.root, text="Подробен избор", command=self.choiceOfPalno).pack()
-            elif self.clicked.get() == "1080p":
-                self.downloadQuickVideo(False, False, "1080p", "")
-            self.choiceOneCheck = False
+                types = [
+                    'video/webm',
+                    'video/mp4'
+                ]
+                for res in resolutions:
+                    for type in types:
+                        try:
+                            string = self.streams.filter(resolution=res, mime_type=type).first()
 
-    URL = NONE
+                            if string is None:
+                                continue
+                            but = Button(self.root, text="Избери",
+                                         command=lambda res1=res, type1=type:
+                                         self.downloadQuickVideo(False, False, res1, type1, ""))
+                            but.grid(row=self.index, column=1)
 
-    def choiceOfPalno(self):
-        self.URL = self.entryURL.get()
+                            lab = Label(self.root,
+                                        text=f"{res} {type.split('/')[1]} {string.filesize / 1024 / 1024 :.2f} MB")
+                            lab.grid(row=self.index, column=0)
 
-        # print(self.URL)
-        self.label.config(text=self.clickedPalno.get())
-        if self.clickedPalno.get().__contains__("kbps"):
-            # self.downloadQuickVideo(True, False, "", self.clickedPalno.get())
-            threading.Thread(target=self.downloadQuickVideo(True, False, "", self.clickedPalno.get()),
-                             daemon=True).start()
+                            self.index += 1
 
-        elif self.clickedPalno.get().endswith("p"):
-            # self.downloadQuickVideo(False, False, self.clickedPalno.get(), "")
-            threading.Thread(target=self.downloadQuickVideo(False, False, self.clickedPalno.get(), ""),
-                             daemon=True).start()
+                            self.labels.append(lab)
+                            self.buttons.append(but)
+                        except KeyError as e:
+                            self.errorLabel.config(text=self.errorLabel.cget("text") + f"Проблем {e} с видео {string.title} \n")
+            if self.workingWithPlaylist:
+                print(f"{self.playlistStreams}+ NONE")
+                # for string in self.playlistStreams[0].filter(type="audio").order_by("abr").desc():
+                # for string in self.playlist.videos[0].streams.filter(type="audio").order_by("abr").desc():
+                for string in self.streams.filter(type="audio").order_by("abr").desc():
+                    but = Button(self.root, text="Избери",
+                                 command=lambda mime=string.mime_type, abr=string.abr:
+                                 self.downloadQuickVideo(True, False, "", mime, abr))
+                    but.grid(row=self.index, column=1)
+                    lab = Label(self.root,
+                                text=f"{string.abr} {string.mime_type.split('/')[1]} mp3")
+                    lab.grid(row=self.index, column=0)
+                    self.index += 1
 
-    def downloadQuickVideo(self, audioOnly: bool, maxQuality: bool, videoQuality: str, audioQuality: str):
-        if self.workingWithPlaylist:
-            # print(self.URL)
-            self.playlist = Playlist(self.URL)
-            # print(self.playlist.videos)
-            for vid in self.playlist.videos:
-                vid.register_on_progress_callback(self.progress_function)
+                    self.labels.append(lab)
+                    self.buttons.append(but)
+                print("BREAK0")
+                resolutions = [
+                    '4320p',
+                    '2160p',
+                    '1440p',
+                    '1080p',
+                    '720p',
+                    '480p',
+                    '360p'
+                ]
+                types = [
+                    'video/webm',
+                    'video/mp4'
+                ]
+                for res in resolutions:
+                    for type in types:
+                        # string = self.playlistStreams[0].filter(resolution=res, mime_type=type).first()
+                        # string = self.playlist.videos[0].streams.filter(resolution=res, mime_type=type).first()
+                        string = self.streams.filter(resolution=res, mime_type=type).first()
 
-                # self.download(audioOnly, maxQuality, videoQuality, audioQuality, vid, vid.title)
-                threading.Thread(
-                    target=self.download(audioOnly, maxQuality, videoQuality, audioQuality, vid, vid.title),
-                    daemon=True).start()
-        else:
-            url = YouTube(self.URL, on_progress_callback=on_progress)
-            title = url.title
-            if len(self.entryName.get()) != 0:
-                title = self.entryName.get()
-            # self.download(audioOnly, maxQuality, videoQuality, audioQuality, url, title)
-            threading.Thread(target=self.download(audioOnly, maxQuality, videoQuality, audioQuality, url, title),
-                             daemon=True).start()
+                        if string is None:
+                            continue
+                        but = Button(self.root, text="Избери",
+                                     command=lambda res1=res, type1=type:
+                                     self.downloadQuickVideo(False, False, res1, type1, ""))
+                        but.grid(row=self.index, column=1)
 
-    def download(self, audioOnly: bool, maxQuality: bool, videoQuality: str, audioQuality: str, url: YouTube,
-                 title: str):
+                        lab = Label(self.root,
+                                    text=f"{res} {type.split('/')[1]}")
+                        lab.grid(row=self.index, column=0)
 
-        title = title.replace("|", "").replace("/", "").replace("\\", "").replace("?", "").replace(":", "").replace(
-            "*", "").replace("<", "").replace(">", "").replace("\"", "").replace("&", "and")
+                        self.index += 1
 
-        audioOutput = self.directory + '/' + title + " author- " + url.author + '.mp3'
-        videoOutput = self.directory + '/' + title + " author- " + url.author + '.webm'
+                        self.labels.append(lab)
+                        self.buttons.append(but)
+            self.urlVault = self.entryURL.get()
+            self.changedUrl = False
 
-        # print(url.streams.filter(only_audio=True))
-        if audioOnly:
+    def downloadPlaylist(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str,
+                         audioQuality: str):
+        threads = []
+        queue = 2
+        usecase = self.playlist.videos[0].length
+        print(f"LENGTH + {usecase}")
+        if audioOnly or usecase < 60 * 3:
+            queue = 4
+        if usecase < 60 * 5:
+            queue = 2
+        if usecase > 60 * 30:
+            print("ADDD")
+            queue = 1
+        if usecase > 60 * 50:
+            queue = 1
+        if videoQuality == "1440p" or videoQuality == "2160p":
+            queue = 1
+        queue = 8
+        self.threadNumber = 0
+        for vid in self.playlist.videos:
+            # vid.register_on_progress_callback(self.progress_function)
+            while True:
+                print(f"threads {self.threadNumber - queue}")
+                if self.threadNumber < queue:
+                    # if len(threads) > 1:
+                    #     threads[0].join()
+                    self.threadNumber += 1
+                    t = threading(target=self.download,
+                                  args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality, vid,
+                                        vid.title])
+                    threads.append(t)
+                    t.start()
+                    print("PROPER")
+                    break
+                sleep(0.1)
+        print(f"GIGA STRANEN {threads}")
+        for thread in threads:
+            print(f"??? {thread}")
+            thread.join()
 
-            if os.path.exists(self.directory + '/' + title + " author- " + url.author + '.mp3'):
-                print(self.directory + '/' + title + " author- " + url.author + '.mp3')
-                print("Съществува" + url.title)
+    def downloadQuickVideo(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str,
+                           audioQuality: str):
+        print(not self.isDownloading)
+        if not self.isDownloading:
+            self.isDownloading = True
+            self.currentPlaylistLength = 0
+            if self.workingWithPlaylist:
+                downloadPlaylistThread = threading(target=self.downloadPlaylist,
+                                                   args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality])
+                downloadPlaylistThread.start()
+            else:
+                title = self.url.title
+
+                if len(self.entryName.get()) != 0:
+                    title = self.entryName.get()
+                # self.download(audioOnly, maxQuality, videoQuality, audioQuality, mime_type, self.url, title) https://www.youtube.com/watch?v=4t8kK030b9o
+                # print(audioOnly, maxQuality, videoQuality, audioQuality, mime_type, self.url, title)
+                t = threading(target=self.download,
+                              args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality, self.url, title])
+                t.start()
+
+    def download(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str, audioQuality: str,
+                 url: YouTube, title: str):
+        # print(audioOnly, maxQuality, videoQuality, audioQuality,"N", mime_type,"N",self.url, title ,"   LLLLLLLLL")
+        # print(f"audioO {audioOnly} vidO {maxQuality} vidQ {videoQuality} audioQ {audioQuality} mime {mime_type} ")
+        # print(audioQuality + "SEconds time")
+        title = title + f" author- {url.author}"
+        title = title.replace("|", "_").replace("/", "_").replace("\\", "_").replace("?", "").replace(":", "-").replace(
+            "*", "").replace("<", "less than").replace(">", "more than").replace("\"", "").replace("&", "and").replace(
+            "/", "or")
+
+        # Виж как да подаваш стрийм че така може да е по бързо
+
+        print(mime_type + "RACHESHKI")
+        # audioOutput = self.directory + '/' + title + " author- " + url.author + ' audio.mp3'
+        audioOutput = self.directory + '/' + title + '.mp3'
+        # if not audioOnly:
+        videoOutput = self.directory + '/' + title + " ." + mime_type.split("/")[1]
+
+        if mime_type.split("/")[0] == "audio":
+            if os.path.exists(audioOutput):
+                print("Съществува аудиото " + url.title)
+                # print(f"Self thread {self.threadNumber}")
+                self.reportLabel.config(text=f"Съществува аудиото {url.title}")
+                self.threadNumber -= 1
+                self.countPlaylist()
+                self.isDownloading = False
                 return
-
+        if mime_type.split("/")[0] == "video":
+            if os.path.exists(videoOutput):
+                print("Съществува видеото" + url.title)
+                self.reportLabel.config(text=f"Съществува видеото {url.title}")
+                self.threadNumber -= 1
+                self.countPlaylist()
+                self.isDownloading = False
+                return
+        if audioOnly:
             if maxQuality:
                 audio = url.streams.filter(only_audio=True).order_by('abr').last()
             else:
                 audio = url.streams.filter(only_audio=True, abr=audioQuality).first()
+                print(audio)
+                if not audio:
+                    audio = url.streams.filter(only_audio=True).first()
             self.filesize = audio.filesize
-            audioFile = audio.download(output_path=self.directory, filename=title + ' audio.webm')
+            audioFile = audio.download(output_path=self.directory, filename=title)
+            # audioFile = audio.download(output_path=self.directory, skip_existing=True)
 
-            os.system(f'cmd /c "ffmpeg -i "{audioFile}" -vn -ab 160k -ar 48000 -y "{audioOutput}"     "')
+            os.system(
+                f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -ab {audio.abr.split("b")[0]} -ar 48000 -y "{audioOutput}" "')
+                # f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -y "{audioOutput}" "')
             os.remove(audioFile)
 
-        elif not audioOnly:
-            if os.path.exists(self.directory + '/' + title + " author- " + url.author + '.webm'):
-                print("Съществува" + url.title)
-                return
-            if os.path.exists(self.directory + '/' + title + " author- " + url.author + '.mp4'):
-                print("Съществува" + url.title)
-                return
-            audio = url.streams.filter(only_audio=True).order_by('abr').last()
-            self.filesize = audio.filesize
-            audioFile = audio.download(output_path=self.directory, filename=title + ' audio.webm')
+        #     mp3conv320 () {
+        # INFILE=$1
+        # ffmpeg -i “$INFILE” -vn -ab 320k -ar 44100 -loglevel 48 “${INFILE%.*}.mp3”
+        # }
+
+        if not audioOnly:
 
             if maxQuality:
                 video = url.streams.order_by('resolution').last()
             else:
-                video = url.streams.filter(mime_type="video/webm", resolution=videoQuality).first()
+                print("SECONDARY OPTION")
+                print(videoQuality)
+                print(mime_type)
+                print(url)
+                video = url.streams.filter(mime_type=mime_type, resolution=videoQuality).first()
+                print(video)
+            if not video:
+                video = url.streams.filter(mime_type=mime_type).first()
+                print(f"SLED WTORO TARSENE {video} {title}")
+                if not video:
+                    video = url.streams.get_highest_resolution()
+                    videoOutput = self.directory + '/' + title + " ." + video.mime_type.split("/")[1]
+                    if not video:
+                        self.errorLabel.config(text=self.errorLabel.cget("text") + f" Няма информация за видеото {title}")
+                        print("Nqma качеството")
+                        self.threadNumber -= 1
+                        self.countPlaylist()
+                        self.isDownloading = False
+                        return
+            # @#%Jimmy@#%Neutron@#%boy(boi) genius invents super speed;Ray Sipe;Comedy;Parody author- raysipeladygaga video .webm
+            # self.filesize = video.filesize
+            # print(mime_type + "AAAAAAAAAAAAA")
+
+            # if videoQuality == "144p" or videoQuality == "240p" or videoQuality == "360p" or videoQuality == "480p" or videoQuality == "720p":
+            #     video.download(output_path=self.directory, filename=videoOutput)
+            # else:
+            print(title)
+            audio = url.streams.filter(only_audio=True).order_by('abr').last()
+            self.filesize = audio.filesize
+            # audioFile = audio.download(output_path=self.directory, filename=title + ' audio.mp3')
+            audioFile = audio.download(output_path=self.directory, filename=title + ' audio')
 
             self.filesize = video.filesize
-            videoFile = video.download(output_path=self.directory, filename=title + ' video .webm')
+            # videoFile = video.download(output_path=self.directory,filename=title + ' video .' + mime_type.split("/")[1])
+            videoFile = video.download(output_path=self.directory, filename=title + ' video')
 
-            # self.wtfNotAudio(videoFile, audioFile, videoOutput)
-            threading.Thread(target=self.wtfNotAudio(videoFile, audioFile, videoOutput), daemon=True).start()
+            try:
+                os.system(
+                    f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
+            except Exception:
+                os.remove(videoOutput)
+            os.remove(audioFile)
+            os.remove(videoFile)
+        self.threadNumber -= 1
+        self.countPlaylist()
+        self.isDownloading = False
 
-    def wtfNotAudio(self, videoFile, audioFile, videoOutput):
-        os.system(f'cmd /c "ffmpeg -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
-        os.remove(audioFile)
-        os.remove(videoFile)
+    def countPlaylist(self):
+        if self.workingWithPlaylist:
+            self.currentPlaylistLength += 1
+            self.reportLabel.config(text=f"{self.currentPlaylistLength} ot {self.playlistLength} videa/audio")
 
     def reset(self):
         self.root.destroy()
         self.root = Panel()
 
     def progress_function(self, chunk, file_handle, bytes_remaining):
-        # print(self.filesize)
-        # print(str(bytes_remaining) + "TTTTTTTTTTTT")
         current = ((int(self.filesize) - bytes_remaining) / self.filesize)
-        percent = ('{0:.1f}').format(current * 100)
-        progress = int(50 * current)
-        status = '█' * progress + '-' * (50 - progress)
+        percent = '{0:.1f}'.format(current * 100)
         print(percent)
-        self.sizeLabel = self.filesize
-        self.reportLabel = progress
+        # self.sizeLabel.config(text=self.filesize)
+        self.reportLabel.config(text=percent)
 
     def __init__(self):
-        # self.entryURL = None
+        self.playlistStreams = None
+        self.streams = None
+        self.url = None
         self.filesize = None
         self.playlist = None
         self.directory = None
@@ -197,28 +473,64 @@ class Panel:
 
         self.root.geometry("300x800")
 
-        Label(self.root, text="URL").pack()
+        self.index = 0
+
+        Label(self.root, text="URL").grid(row=self.index, column=0, columnspan=2)
+        self.index += 1
         entry_text = StringVar()
         self.entryURL = Entry(self.root, width=50, textvariable=entry_text)
-        entry_text.set("https://www.youtube.com/watch?v=mVTCxn5rJ50&list=PLS6oKYrRmu0BSZ8lQPWb_U9jVuPn573r-&index=9")
-        self.entryURL.pack()
+        self.entryURL.grid(row=self.index, column=0, columnspan=2)
+        self.index += 1
 
-        Label(self.root, text="File Name").pack()
+        Label(self.root, text="File Name (optional)").grid(row=self.index, column=0, columnspan=2)
+        self.index += 1
         self.entryName = Entry(self.root, width=50)
-        self.entryName.pack()
+        self.entryName.grid(row=self.index, column=0, columnspan=2)
+        self.index += 1
 
-        Button(self.root, text="Избиране на директория", command=self.startingOption).pack()
+        Button(self.root, text="Избиране на директория", command=self.startingOption).grid(row=self.index, column=0,
+                                                                                           columnspan=2)
+        self.index += 1
         self.directoryLabel = Label(self.root, text="Chosen directory")
-        self.directoryLabel.pack()
+        self.directoryLabel.grid(row=self.index, column=0, columnspan=2)
+        self.index += 1
 
-        Button(self.root, text="reset", command=self.reset).pack()
-        self.reportLabel = Label(self.root, text="Reports")
-        self.reportLabel.pack()
-        self.sizeLabel = Label(self.root, text="Reports")
-        self.sizeLabel.pack()
+        Button(self.root, text="reset", command=self.reset).grid(row=self.index, column=0)
+        self.index += 1
+        self.reportLabel = Label(self.root,
+                                 text="ReportsAAAAAAAAAAAAAAAAAABAА\nАAAAAAABAAAAAAAAAAAAAAAB\nAAAAAAAAAAA\nAAABAAAAAAAAAAAAAA\nBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAАААА")
+        self.reportLabel.grid(row=self.index, column=0, columnspan=12)
+        self.index += 1
+        self.sizeLabel = Label(self.root, text="Sizing")
+        self.sizeLabel.grid(row=self.index, column=0)
+        self.index += 1
+        self.errorLabel = Label(self.root, text="Error List")
+        self.errorLabel.grid(row=self.index, column=0)
+        self.index += 1
+
+        self.continueButton = Button(self.root, text="Връзката не е заредена", command=self.continueButton)
+        self.continueButton.grid(row=self.index, column=0, columnspan=2)
+
+        self.index += 1
+
+        self.label = Label(self.root, text=" ")
+        self.label.grid(row=self.index, column=0)
+        self.index += 1
 
         # Execute tkinter
         self.root.mainloop()
+
+    def continueButton(self):
+        # print(self.urlVault)
+        # print(self.entryURL.get())
+        if self.urlVault != self.entryURL.get():
+            print("Wliza na wtori tur")
+            # self.define()
+            t = threading(target=self.define(), daemon=True).start()
+
+        t = threading(target=self.choiceOne(), daemon=True).start()
+        # self.choiceOne()
+        # return
 
 
 if __name__ == '__main__':
