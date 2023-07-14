@@ -1,19 +1,13 @@
 import os
 import sys
-import time
 from threading import Thread as threading
-from tkinter import OptionMenu
 from tkinter import Button
 from tkinter import Label
-from tkinter import Message
 from tkinter import Tk
 from tkinter import StringVar
-from tkinter import NONE
 from tkinter import Entry
 from tkinter import filedialog
-from tkinter import ttk
-# from queue import Queue
-from time import sleep, perf_counter
+from time import sleep
 
 from pytube import YouTube
 from pytube import Playlist
@@ -58,6 +52,9 @@ sys.path.append(r'C:\ffmpeg\bin')
 # Докато тегли видео/а да блокира бутоните (работи за индив видео) но да има бутон който да спре тегленето веднага и след текущото видео
 # Ако няма избраното аудио от плейлист да изтегли една категория надолу
 # Не тегли възрастово ограничени видеа сигурно трябва ютуб акаунт бисквити или нещо
+#
+#
+# Ако е избрал видео/лист, но избере нов то да премахне списъка с опции за теглене и име/брой видеа
 
 class Panel:
     startingOptionCheck = True
@@ -84,8 +81,7 @@ class Panel:
             xx.start()
 
     def define(self):
-        if self.entryURL.get().__contains__("playlist?list"):
-                # or self.entryURL.get().__contains__("&list")\
+        if self.entryURL.get().__contains__("playlist?list") or self.entryURL.get().__contains__("&list"):
 
             self.workingWithPlaylist = True
         else:
@@ -100,8 +96,23 @@ class Panel:
             # xx.start()
             self.defineStreams()
 
+        self.resetStreams()
+
+    def resetStreams(self):
+        for obj in self.labels:
+            obj.destroy()
+
+        for obj in self.buttons:
+            obj.destroy()
+
+        self.labels = []
+        self.buttons = []
+
+        # self.progressLabel.config(text="")
+
     def defineYoutube(self):
-        self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function)
+        self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function,
+                           on_complete_callback=self.complete_function)
         # self.url.bypass_age_gate()
 
     def defineStreams(self):
@@ -113,7 +124,7 @@ class Panel:
         self.continueButton.config(text="Избери")
         self.changedUrl = True
         self.urlVault = self.entryURL.get()
-        self.sizeLabel.config(text=self.url.title)
+        self.sizeLabel.config(text="Заглавие " + self.url.title)
         print("Got streams")
 
     def definePlaylist(self):
@@ -130,10 +141,10 @@ class Panel:
         self.continueButton.config(text="Избери")
         self.changedUrl = True
         self.urlVault = self.entryURL.get()
-        self.sizeLabel.config(text=self.playlist.title)
+        self.sizeLabel.config(text="Заглавие " + self.playlist.title)
         self.currentPlaylistLength = 0
         self.playlistLength = self.playlist.length
-        self.reportLabel.config(text=self.playlistLength)
+        self.progressLabel.config(text=f"{self.playlistLength} броя")
         print("Got streams")
 
         # print(self.playlistStreams)
@@ -143,22 +154,15 @@ class Panel:
 
     def choiceOne(self):
         if not self.entryURL.get().strip():
-            self.reportLabel.config(text="Ne e waweden URL")
+            self.reportLabel.config(text="Не е въведен URL")
             return
         if not self.directory:
-            self.reportLabel.config(text="Nqma izbrana direktoriq")
+            self.reportLabel.config(text="Няма избрана директория")
             return
 
         if self.changedUrl:
             print("==")
-            for obj in self.labels:
-                obj.destroy()
-
-            for obj in self.buttons:
-                obj.destroy()
-
-            self.labels = []
-            self.buttons = []
+            self.resetStreams()
 
             print(5)
 
@@ -217,7 +221,8 @@ class Panel:
                             self.labels.append(lab)
                             self.buttons.append(but)
                         except KeyError as e:
-                            self.errorLabel.config(text=self.errorLabel.cget("text") + f"Проблем {e} с видео {string.title} \n")
+                            self.errorLabel.config(
+                                text=self.errorLabel.cget("text") + f"Проблем {e} с видео {string.title} \n")
             if self.workingWithPlaylist:
                 print(f"{self.playlistStreams}+ NONE")
                 # for string in self.playlistStreams[0].filter(type="audio").order_by("abr").desc():
@@ -289,12 +294,12 @@ class Panel:
             queue = 1
         if videoQuality == "1440p" or videoQuality == "2160p":
             queue = 1
-        queue = 8
+        queue = 16
         self.threadNumber = 0
         for vid in self.playlist.videos:
             # vid.register_on_progress_callback(self.progress_function)
             while True:
-                print(f"threads {self.threadNumber - queue}")
+                print(f"threads {queue - self.threadNumber}")
                 if self.threadNumber < queue:
                     # if len(threads) > 1:
                     #     threads[0].join()
@@ -306,7 +311,7 @@ class Panel:
                     t.start()
                     print("PROPER")
                     break
-                sleep(0.1)
+                sleep(0.05)
         print(f"GIGA STRANEN {threads}")
         for thread in threads:
             print(f"??? {thread}")
@@ -323,10 +328,10 @@ class Panel:
                                                    args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality])
                 downloadPlaylistThread.start()
             else:
-                title = self.url.title
+                title = self.url.streams[0].title
 
-                if len(self.entryName.get()) != 0:
-                    title = self.entryName.get()
+                # if len(self.entryName.get()) != 0:
+                # title = self.entryName.get()
                 # self.download(audioOnly, maxQuality, videoQuality, audioQuality, mime_type, self.url, title) https://www.youtube.com/watch?v=4t8kK030b9o
                 # print(audioOnly, maxQuality, videoQuality, audioQuality, mime_type, self.url, title)
                 t = threading(target=self.download,
@@ -338,24 +343,37 @@ class Panel:
         # print(audioOnly, maxQuality, videoQuality, audioQuality,"N", mime_type,"N",self.url, title ,"   LLLLLLLLL")
         # print(f"audioO {audioOnly} vidO {maxQuality} vidQ {videoQuality} audioQ {audioQuality} mime {mime_type} ")
         # print(audioQuality + "SEconds time")
+        print("AUTHOR AU AUAUUAUAUAUUAU" + url.author)
         title = title + f" author- {url.author}"
         title = title.replace("|", "_").replace("/", "_").replace("\\", "_").replace("?", "").replace(":", "-").replace(
             "*", "").replace("<", "less than").replace(">", "more than").replace("\"", "").replace("&", "and").replace(
             "/", "or")
 
+        # Когато тегли да провери ако е само звук или под 720p директно да свали без комбиниране
+        # Рестарта който прави бутона избери да се прави автоматично след спиране на нишките
+        # ще води до по-малко грешки
+
         # Виж как да подаваш стрийм че така може да е по бързо
 
-        print(mime_type + "RACHESHKI")
+        print(mime_type + " RACHESHKI MIME TIP")
         # audioOutput = self.directory + '/' + title + " author- " + url.author + ' audio.mp3'
         audioOutput = self.directory + '/' + title + '.mp3'
         # if not audioOnly:
         videoOutput = self.directory + '/' + title + " ." + mime_type.split("/")[1]
 
         if mime_type.split("/")[0] == "audio":
+            # измисли начин да проверява имаето без ебавката от преименуването // някак да взима youtube id
+            # оправи възникването на грешка на нишките зацикля програмата след приключване на нишките
+            # error handling при raise exceptions.AgeRestrictedError(self.video_id)
+            # pytube.exceptions.AgeRestrictedError: jKZzU1iiLWw is age restricted, and can't be accessed without logging in.
+            # Сега се случва при age restricted
             if os.path.exists(audioOutput):
                 print("Съществува аудиото " + url.title)
                 # print(f"Self thread {self.threadNumber}")
-                self.reportLabel.config(text=f"Съществува аудиото {url.title}")
+                txt = self.reportLabel.cget("text")
+                self.reportLabel.config(text=f""
+                                             # f"{txt} "
+                                             f"Съществува аудиото {url.title} +\n")
                 self.threadNumber -= 1
                 self.countPlaylist()
                 self.isDownloading = False
@@ -370,20 +388,22 @@ class Panel:
                 return
         if audioOnly:
             if maxQuality:
-                audio = url.streams.filter(only_audio=True).order_by('abr').last()
-            else:
                 audio = url.streams.filter(only_audio=True, abr=audioQuality).first()
+            else:
+                audio = url.streams.filter(only_audio=True).order_by('abr').last()
                 print(audio)
                 if not audio:
                     audio = url.streams.filter(only_audio=True).first()
             self.filesize = audio.filesize
-            audioFile = audio.download(output_path=self.directory, filename=title)
+            print("Заглавие " + title)
+            print(audio.bitrate)
+            audioFile = audio.download(output_path=self.directory, filename=title + ".mp3")
             # audioFile = audio.download(output_path=self.directory, skip_existing=True)
 
-            os.system(
-                f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -ab {audio.abr.split("b")[0]} -ar 48000 -y "{audioOutput}" "')
-                # f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -y "{audioOutput}" "')
-            os.remove(audioFile)
+            # os.system(
+            #     f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -ab {audio.abr.split("b")[0]} -ar 48000 -y "{audioOutput}" "')
+            # f'cmd /c "ffmpeg -hide_banner -loglevel error -i "{audioFile}" -vn -y "{audioOutput}" "')
+            # os.remove(audioFile)
 
         #     mp3conv320 () {
         # INFILE=$1
@@ -408,7 +428,8 @@ class Panel:
                     video = url.streams.get_highest_resolution()
                     videoOutput = self.directory + '/' + title + " ." + video.mime_type.split("/")[1]
                     if not video:
-                        self.errorLabel.config(text=self.errorLabel.cget("text") + f" Няма информация за видеото {title}")
+                        self.errorLabel.config(
+                            text=self.errorLabel.cget("text") + f" Няма информация за видеото {title}")
                         print("Nqma качеството")
                         self.threadNumber -= 1
                         self.countPlaylist()
@@ -445,7 +466,7 @@ class Panel:
     def countPlaylist(self):
         if self.workingWithPlaylist:
             self.currentPlaylistLength += 1
-            self.reportLabel.config(text=f"{self.currentPlaylistLength} ot {self.playlistLength} videa/audio")
+            self.progressLabel.config(text=f"{self.currentPlaylistLength} ot {self.playlistLength} videa/audio")
 
     def reset(self):
         self.root.destroy()
@@ -456,7 +477,10 @@ class Panel:
         percent = '{0:.1f}'.format(current * 100)
         print(percent)
         # self.sizeLabel.config(text=self.filesize)
-        self.reportLabel.config(text=percent)
+        self.progressLabel.config(text=percent)
+
+    def complete_function(self, needs3vars, fundrequires3vars):
+        self.progressLabel.config(text="Приключи изтеглянето")
 
     def __init__(self):
         self.playlistStreams = None
@@ -491,18 +515,22 @@ class Panel:
         Button(self.root, text="Избиране на директория", command=self.startingOption).grid(row=self.index, column=0,
                                                                                            columnspan=2)
         self.index += 1
-        self.directoryLabel = Label(self.root, text="Chosen directory")
+        self.directoryLabel = Label(self.root, text="Избрана директория")
         self.directoryLabel.grid(row=self.index, column=0, columnspan=2)
         self.index += 1
 
         Button(self.root, text="reset", command=self.reset).grid(row=self.index, column=0)
         self.index += 1
-        self.reportLabel = Label(self.root,
-                                 text="ReportsAAAAAAAAAAAAAAAAAABAА\nАAAAAAABAAAAAAAAAAAAAAAB\nAAAAAAAAAAA\nAAABAAAAAAAAAAAAAA\nBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAАААА")
+        self.progressLabel = Label(self.root, text="Ред за прогрес")
+        self.progressLabel.grid(row=self.index, column=0, columnspan=12)
+
+        self.index += 1
+        self.reportLabel = Label(self.root, text="Ред за отчет")
         self.reportLabel.grid(row=self.index, column=0, columnspan=12)
+
         self.index += 1
         self.sizeLabel = Label(self.root, text="Sizing")
-        self.sizeLabel.grid(row=self.index, column=0)
+        self.sizeLabel.grid(row=self.index, column=0, columnspan=2)
         self.index += 1
         self.errorLabel = Label(self.root, text="Error List")
         self.errorLabel.grid(row=self.index, column=0)
@@ -524,7 +552,7 @@ class Panel:
         # print(self.urlVault)
         # print(self.entryURL.get())
         if self.urlVault != self.entryURL.get():
-            print("Wliza na wtori tur")
+            print("W")
             # self.define()
             t = threading(target=self.define(), daemon=True).start()
 
