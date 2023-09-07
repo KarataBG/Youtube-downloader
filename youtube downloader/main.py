@@ -135,7 +135,7 @@ class Panel:
         self.playlist = Playlist(self.entryURL.get())
         print("Got playlist")
         # self.playlistStreams = [a.streams for a in self.playlist.videos]
-        self.streams = self.playlist.videos[0].streams
+        self.streams = self.playlist.videos[1].streams
         print("Stream 1")
 
         self.continueButton.config(text="Избери")
@@ -372,7 +372,7 @@ class Panel:
                 # print(f"Self thread {self.threadNumber}")
                 txt = self.reportLabel.cget("text")
                 self.reportLabel.config(text=f""
-                                             # f"{txt} "
+                # f"{txt} "
                                              f"Съществува аудиото {url.title} +\n")
                 self.threadNumber -= 1
                 self.countPlaylist()
@@ -443,6 +443,8 @@ class Panel:
             #     video.download(output_path=self.directory, filename=videoOutput)
             # else:
             print(title)
+            print(video.resolution)
+
             audio = url.streams.filter(only_audio=True).order_by('abr').last()
             self.filesize = audio.filesize
             # audioFile = audio.download(output_path=self.directory, filename=title + ' audio.mp3')
