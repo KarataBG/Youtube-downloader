@@ -343,7 +343,7 @@ class Panel:
         # print(audioOnly, maxQuality, videoQuality, audioQuality,"N", mime_type,"N",self.url, title ,"   LLLLLLLLL")
         # print(f"audioO {audioOnly} vidO {maxQuality} vidQ {videoQuality} audioQ {audioQuality} mime {mime_type} ")
         # print(audioQuality + "SEconds time")
-        print("AUTHOR AU AUAUUAUAUAUUAU" + url.author)
+        print(self.directory + url.author)
         title = title + f" author- {url.author}"
         title = title.replace("|", "_").replace("/", "_").replace("\\", "_").replace("?", "").replace(":", "-").replace(
             "*", "").replace("<", "less than").replace(">", "more than").replace("\"", "").replace("&", "and").replace(
