@@ -112,7 +112,7 @@ class Panel:
 
     def defineYoutube(self):
         self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function,
-                           on_complete_callback=self.complete_function)
+                           on_complete_callback=self.complete_function,use_oauth=True,allow_oauth_cache=True)
         # self.url.bypass_age_gate()
 
     def defineStreams(self):
@@ -164,49 +164,19 @@ class Panel:
             print("==")
             self.resetStreams()
 
-            print(5)
+            # print(5)
 
             if not self.workingWithPlaylist:
                 if self.streams is None:
                     x = threading(target=self.define(), daemon=True)
                     x.start()
                     x.join()
-
-                sound = self.streams.filter(type="audio").order_by("abr").desc()[0]
-                but2 = Button(self.root, text="Избери само звук",
-                              command=lambda: self.downloadQuickVideo(True, True, "", sound.mime_type, sound.abr))
-                lab = Label(self.root, text="Звук")
-                self.index += 1
-                but2.grid(row=self.index, column=1)
-                lab.grid(row=self.index, column=0)
-                self.buttons.append(but2)
-                self.buttons.append(lab)
-
-                # print(self.streams.filter(type="video").order_by("resolution").desc()[0])
-                # video = self.streams.filter(type="video").order_by("resolution").desc()[0]
-                print(9)
-                # print(self.streams.filter(resolution="1080p"))
-                # print(self.streams.filter(resolution="240p"))
-                video = self.streams.filter(resolution="1080p").first()
-                if not video:
-                    video = self.streams.filter(resolution="720p").first()
-                    if not video:
-                        video = self.streams.filter(resolution="480p").first()
-                        if not video:
-                            video = self.streams.filter(resolution="360p").first()
-                            if not video:
-                                video = self.streams.filter(resolution="240p").first()
-                # print(video)
-
+                but = Button(self.root, text="Избери само звук",
+                             command=lambda: self.downloadQuickVideo(True, True, "", "audio", ""))
+                self.buttons.append(but)
                 but1 = Button(self.root, text="Избери видео със звук",
-                              command=lambda: self.downloadQuickVideo(False, True, video.resolution, video.mime_type, ""))
-                lab = Label(self.root, text="Звук и Видео")
-                self.index += 1
-                but1.grid(row=self.index, column=1)
-                lab.grid(row=self.index, column=0)
+                              command=lambda: self.downloadQuickVideo(False, True, "", "video", ""))
                 self.buttons.append(but1)
-                self.index += 1
-
                 for string in self.streams.filter(type="audio").order_by("abr").desc():
                     but = Button(self.root, text="Избери",
                                  command=lambda mime=string.mime_type, abr=string.abr:
