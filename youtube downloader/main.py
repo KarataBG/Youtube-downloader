@@ -9,8 +9,12 @@ from tkinter import Entry
 from tkinter import filedialog
 from time import sleep
 
+
 from pytube import YouTube
 from pytube import Playlist
+
+from moviepy.editor import *
+import moviepy
 
 from textwrap import wrap
 
@@ -114,19 +118,7 @@ class Panel:
         self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function,
                            on_complete_callback=self.complete_function)
         # self.url.bypass_age_gate()
-
-    def defineStreams(self):
-        self.continueButton.config(text="Връзката не е осъществена")
-        print("Starting streams")
-        self.defineYoutube()
-        print(self.url)
-        self.streams = self.url.streams
-        self.continueButton.config(text="Избери")
-        self.changedUrl = True
-        self.urlVault = self.entryURL.get()
-        self.sizeLabel.config(text="Заглавие " + self.url.title)
-        print("Got streams")
-
+        
     def definePlaylist(self):
         self.continueButton.config(text="Връзката не е осъществена")
         print("Starting streams")
@@ -141,7 +133,11 @@ class Panel:
         self.continueButton.config(text="Избери")
         self.changedUrl = True
         self.urlVault = self.entryURL.get()
-        self.sizeLabel.config(text="Заглавие " + self.playlist.title)
+        splitedString = ""
+        n  = 32
+        for index in range(0, len(self.url.title), n):
+            splitedString+=(self.url.title[index : index + n]) + "\n"
+        self.sizeLabel.config(text="Заглавие:\n" + str(splitedString))
         self.currentPlaylistLength = 0
         self.playlistLength = self.playlist.length
         self.progressLabel.config(text=f"{self.playlistLength} броя")
@@ -149,6 +145,23 @@ class Panel:
 
         # print(self.playlistStreams)
 
+    def defineStreams(self):
+        self.continueButton.config(text="Връзката не е осъществена")
+        print("Starting streams")
+        self.defineYoutube()
+        print(self.url)
+        self.streams = self.url.streams
+        self.continueButton.config(text="Избери")
+        self.changedUrl = True
+        self.urlVault = self.entryURL.get()
+        splitedString = ""
+        n  = 32
+        for index in range(0, len(self.url.title), n):
+            splitedString+=(self.url.title[index : index + n]) + "\n"
+        self.sizeLabel.config(text="Заглавие:\n" + str(splitedString))
+        print("Got streams")
+
+    
     labels = []
     buttons = []
 
@@ -374,6 +387,7 @@ class Panel:
                               args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality, self.url, title])
                 t.start()
 
+
     def download(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str, audioQuality: str,
                  url: YouTube, title: str):
         # print(audioOnly, maxQuality, videoQuality, audioQuality,"N", mime_type,"N",self.url, title ,"   LLLLLLLLL")
@@ -490,13 +504,34 @@ class Panel:
             # videoFile = video.download(output_path=self.directory,filename=title + ' video .' + mime_type.split("/")[1])
             videoFile = video.download(output_path=self.directory, filename=title + ' video')
 
+            #videoclip = VideoFileClip(videoFile)
+            #audioclip = AudioFileClip(audioFile)
+
+            acodec="copy"
+            if mime_type.split("/")[1] == "mp4":
+                acodec = "aac"
+            elif mime_type.split("/")[1] == "webm":
+                acodec = "opus"
+
+            moviepy.video.io.ffmpeg_tools.ffmpeg_merge_video_audio(
+                 videoFile, audioFile, videoOutput, vcodec='copy',
+                         acodec=acodec,
+                         ffmpeg_output=False,
+                         logger=None)
+
+            #final_clip = videoclip.set_audio(audioclip)
+            #final_clip.write_videofile(videoOutput)
+            # try:
+             #   os.system(f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
+            #except Exception:
+               # os.remove(videoOutput)
+            sleep(2)
             try:
-                os.system(
-                    f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
-            except Exception:
-                os.remove(videoOutput)
-            os.remove(audioFile)
-            os.remove(videoFile)
+                os.remove(audioFile)
+                os.remove(videoFile)
+            except:
+                pass
+                
         self.threadNumber -= 1
         self.countPlaylist()
         self.isDownloading = False
