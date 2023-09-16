@@ -9,7 +9,6 @@ from tkinter import Entry
 from tkinter import filedialog
 from time import sleep
 
-
 from pytube import YouTube
 from pytube import Playlist
 
@@ -218,8 +217,8 @@ class Panel:
                 but1.grid(row=self.index, column=1)
                 lab.grid(row=self.index, column=0)
                 self.buttons.append(but1)
-                self.index += 1
-
+                self.index += 1    
+                    
                 for string in self.streams.filter(type="audio").order_by("abr").desc():
                     but = Button(self.root, text="Избери",
                                  command=lambda mime=string.mime_type, abr=string.abr:
@@ -387,7 +386,6 @@ class Panel:
                               args=[audioOnly, maxQuality, videoQuality, mime_type, audioQuality, self.url, title])
                 t.start()
 
-
     def download(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str, audioQuality: str,
                  url: YouTube, title: str):
         # print(audioOnly, maxQuality, videoQuality, audioQuality,"N", mime_type,"N",self.url, title ,"   LLLLLLLLL")
@@ -504,9 +502,6 @@ class Panel:
             # videoFile = video.download(output_path=self.directory,filename=title + ' video .' + mime_type.split("/")[1])
             videoFile = video.download(output_path=self.directory, filename=title + ' video')
 
-            #videoclip = VideoFileClip(videoFile)
-            #audioclip = AudioFileClip(audioFile)
-
             acodec="copy"
             if mime_type.split("/")[1] == "mp4":
                 acodec = "aac"
@@ -519,13 +514,10 @@ class Panel:
                          ffmpeg_output=False,
                          logger=None)
 
-            #final_clip = videoclip.set_audio(audioclip)
-            #final_clip.write_videofile(videoOutput)
             # try:
              #   os.system(f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
             #except Exception:
                # os.remove(videoOutput)
-            sleep(2)
             try:
                 os.remove(audioFile)
                 os.remove(videoFile)
