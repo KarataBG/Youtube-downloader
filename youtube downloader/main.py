@@ -311,7 +311,6 @@ class Panel:
                                         vid.title])
                     threads.append(t)
                     t.start()
-                    print("PROPER")
                     break
                 sleep(0.05)
         for thread in threads:
@@ -516,7 +515,7 @@ class Panel:
         self.clickedPalno = StringVar()
         self.clicked = StringVar()
 
-        self.root.geometry("300x800")
+        self.root.geometry("400x900")
 
         self.index = 0
 
