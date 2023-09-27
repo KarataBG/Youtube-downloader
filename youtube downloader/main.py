@@ -7,7 +7,6 @@ from tkinter import Tk
 from tkinter import StringVar
 from tkinter import Entry
 from tkinter import filedialog
-from time import sleep
 
 
 from pytube import YouTube
@@ -20,7 +19,7 @@ from textwrap import wrap
 
 # from pytube.cli import on_progress
 
-sys.path.append(r'C:\ffmpeg\bin')
+# sys.path.append(r'C:\ffmpeg\bin')
 
 
 # направи проверка дали файла го има да не тегли всеки път
@@ -118,17 +117,15 @@ class Panel:
         self.url = YouTube(self.entryURL.get(), on_progress_callback=self.progress_function,
                            on_complete_callback=self.complete_function)
         # self.url.bypass_age_gate()
-        
+
     def definePlaylist(self):
         self.continueButton.config(text="Връзката не е осъществена")
         print("Starting streams")
 
-        print("playlist")
         self.playlist = Playlist(self.entryURL.get())
         print("Got playlist")
         # self.playlistStreams = [a.streams for a in self.playlist.videos]
         self.streams = self.playlist.videos[1].streams
-        print("Stream 1")
 
         self.continueButton.config(text="Избери")
         self.changedUrl = True
@@ -161,7 +158,7 @@ class Panel:
         self.sizeLabel.config(text="Заглавие:\n" + str(splitedString))
         print("Got streams")
 
-    
+
     labels = []
     buttons = []
 
@@ -174,10 +171,7 @@ class Panel:
             return
 
         if self.changedUrl:
-            print("==")
             self.resetStreams()
-
-            print(5)
 
             if not self.workingWithPlaylist:
                 if self.streams is None:
@@ -197,7 +191,6 @@ class Panel:
 
                     self.labels.append(lab)
                     self.buttons.append(but)
-                print("BREAK0")
                 resolutions = [
                     '4320p',
                     '2160p',
@@ -237,7 +230,6 @@ class Panel:
                             self.errorLabel.config(
                                 text=self.errorLabel.cget("text") + f"Проблем {e} с видео {string.title} \n")
             if self.workingWithPlaylist:
-                print(f"{self.playlistStreams}+ NONE")
                 # for string in self.playlistStreams[0].filter(type="audio").order_by("abr").desc():
                 # for string in self.playlist.videos[0].streams.filter(type="audio").order_by("abr").desc():
                 for string in self.streams.filter(type="audio").order_by("abr").desc():
@@ -252,7 +244,6 @@ class Panel:
 
                     self.labels.append(lab)
                     self.buttons.append(but)
-                print("BREAK0")
                 resolutions = [
                     '4320p',
                     '2160p',
@@ -295,13 +286,11 @@ class Panel:
         threads = []
         queue = 2
         usecase = self.playlist.videos[0].length
-        print(f"LENGTH + {usecase}")
         if audioOnly or usecase < 60 * 3:
             queue = 4
         if usecase < 60 * 5:
             queue = 2
         if usecase > 60 * 30:
-            print("ADDD")
             queue = 1
         if usecase > 60 * 50:
             queue = 1
@@ -325,14 +314,14 @@ class Panel:
                     print("PROPER")
                     break
                 sleep(0.05)
-        print(f"GIGA STRANEN {threads}")
         for thread in threads:
-            print(f"??? {thread}")
             thread.join()
 
     def downloadQuickVideo(self, audioOnly: bool, maxQuality: bool, videoQuality: str, mime_type: str,
                            audioQuality: str):
-        print(not self.isDownloading)
+        if self.isDownloading:
+            print("В момента се тегли от youtube")
+            return
         if not self.isDownloading:
             self.isDownloading = True
             self.currentPlaylistLength = 0
@@ -369,7 +358,6 @@ class Panel:
 
         # Виж как да подаваш стрийм че така може да е по бързо
 
-        print(mime_type + " RACHESHKI MIME TIP")
         # audioOutput = self.directory + '/' + title + " author- " + url.author + ' audio.mp3'
         audioOutput = self.directory + '/' + title + '.mp3'
         # if not audioOnly:
@@ -387,7 +375,7 @@ class Panel:
                 txt = self.reportLabel.cget("text")
                 self.reportLabel.config(text=f""
                 # f"{txt} "
-                                             f"Съществува аудиото {url.title} +\n")
+                f"Съществува аудиото {url.title} +\n")
                 self.threadNumber -= 1
                 self.countPlaylist()
                 self.isDownloading = False
@@ -429,7 +417,6 @@ class Panel:
             if maxQuality:
                 video = url.streams.order_by('resolution').last()
             else:
-                print("SECONDARY OPTION")
                 print(videoQuality)
                 print(mime_type)
                 print(url)
@@ -437,7 +424,6 @@ class Panel:
                 print(video)
             if not video:
                 video = url.streams.filter(mime_type=mime_type).first()
-                print(f"SLED WTORO TARSENE {video} {title}")
                 if not video:
                     video = url.streams.get_highest_resolution()
                     videoOutput = self.directory + '/' + title + " ." + video.mime_type.split("/")[1]
@@ -456,8 +442,6 @@ class Panel:
             # if videoQuality == "144p" or videoQuality == "240p" or videoQuality == "360p" or videoQuality == "480p" or videoQuality == "720p":
             #     video.download(output_path=self.directory, filename=videoOutput)
             # else:
-            print(title)
-            print(video.resolution)
 
             audio = url.streams.filter(only_audio=True).order_by('abr').last()
             self.filesize = audio.filesize
@@ -470,32 +454,32 @@ class Panel:
 
             #videoclip = VideoFileClip(videoFile)
             #audioclip = AudioFileClip(audioFile)
-
-            acodec="copy"
-            if mime_type.split("/")[1] == "mp4":
-                acodec = "aac"
-            elif mime_type.split("/")[1] == "webm":
-                acodec = "opus"
-
-            moviepy.video.io.ffmpeg_tools.ffmpeg_merge_video_audio(
-                 videoFile, audioFile, videoOutput, vcodec='copy',
-                         acodec=acodec,
-                         ffmpeg_output=False,
-                         logger=None)
-
-            #final_clip = videoclip.set_audio(audioclip)
-            #final_clip.write_videofile(videoOutput)
-            # try:
-             #   os.system(f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
-            #except Exception:
-               # os.remove(videoOutput)
-            sleep(2)
             try:
+                acodec = "copy"
+                if mime_type.split("/")[1] == "mp4":
+                    acodec = "aac"
+                elif mime_type.split("/")[1] == "webm":
+                    acodec = "copy"
+
+                moviepy.video.io.ffmpeg_tools.ffmpeg_merge_video_audio(
+                    videoFile, audioFile, videoOutput, vcodec='copy',
+                    acodec=acodec,
+                    ffmpeg_output=False,
+                    logger=None)
+
+                # final_clip = videoclip.set_audio(audioclip)
+                # final_clip.write_videofile(videoOutput)
+                # try:
+                #   os.system(f'cmd /c "ffmpeg -hide_banner -loglevel error -y -i "{videoFile}" -i "{audioFile}" -c copy "{videoOutput}" "')
+                # except Exception:
+                # os.remove(videoOutput)
+
                 os.remove(audioFile)
                 os.remove(videoFile)
             except:
-                pass
-                
+                os.remove(audioFile)
+                os.remove(videoFile)
+
         self.threadNumber -= 1
         self.countPlaylist()
         self.isDownloading = False
@@ -589,7 +573,6 @@ class Panel:
         # print(self.urlVault)
         # print(self.entryURL.get())
         if self.urlVault != self.entryURL.get():
-            print("W")
             # self.define()
             t = threading(target=self.define(), daemon=True).start()
 
