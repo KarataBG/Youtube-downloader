@@ -180,6 +180,43 @@ class Panel:
                     x = threading(target=self.define(), daemon=True)
                     x.start()
                     x.join()
+
+                sound = self.streams.filter(type="audio").order_by("abr").desc()[0]
+                but2 = Button(self.root, text="Избери само звук",
+                              command=lambda: self.downloadQuickVideo(True, True, "", sound.mime_type, sound.abr))
+                lab = Label(self.root, text="Звук")
+                self.index += 1
+                but2.grid(row=self.index, column=1)
+                lab.grid(row=self.index, column=0)
+                self.buttons.append(but2)
+                self.buttons.append(lab)
+
+                # print(self.streams.filter(type="video").order_by("resolution").desc()[0])
+                # video = self.streams.filter(type="video").order_by("resolution").desc()[0]
+                print(9)
+                # print(self.streams.filter(resolution="1080p"))
+                # print(self.streams.filter(resolution="240p"))
+                video = self.streams.filter(resolution="1080p").first()
+                if not video:
+                    video = self.streams.filter(resolution="720p").first()
+                    if not video:
+                        video = self.streams.filter(resolution="480p").first()
+                        if not video:
+                            video = self.streams.filter(resolution="360p").first()
+                            if not video:
+                                video = self.streams.filter(resolution="240p").first()
+                # print(video)
+
+                but1 = Button(self.root, text="Избери видео със звук",
+                              command=lambda: self.downloadQuickVideo(False, False, video.resolution, video.mime_type,
+                                                                      ""))
+                lab = Label(self.root, text="Звук и Видео")
+                self.index += 1
+                but1.grid(row=self.index, column=1)
+                lab.grid(row=self.index, column=0)
+                self.buttons.append(but1)
+                self.index += 1
+
                 for string in self.streams.filter(type="audio").order_by("abr").desc():
                     but = Button(self.root, text="Избери",
                                  command=lambda mime=string.mime_type, abr=string.abr:
